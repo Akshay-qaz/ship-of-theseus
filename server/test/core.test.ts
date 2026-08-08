@@ -47,7 +47,7 @@ describe('revised meters and privacy', () => {
     game.state.players.find((player) => player.system === 'Galley')!.power = 'Salvaged Plank';
     storm(game, 'Sail', true);
     expect(game.state.identity).toBe(identity);
-    expect(game.state.morale).toBe(4);
+    expect(game.state.morale).toBe(5);
   });
 
   it('converts exactly one player when hidden Identity reaches four or below', () => {
@@ -56,6 +56,37 @@ describe('revised meters and privacy', () => {
     expect(game.state.identity).toBeLessThanOrEqual(4);
     expect(game.state.replacementPlayerId).toBeTruthy();
     expect(game.state.players.filter((player) => player.alignment === 'Replacement')).toHaveLength(1);
+  });
+
+  it('corrupts only the converted player readings, stably and legally', () => {
+    const game = voyage(10, 4);
+    for (const system of ['Sail', 'Rudder', 'Hull', 'Mast'] as System[]) storm(game, system, true);
+    const replacement = game.state.replacementPlayerId as string;
+    const converted = game.playerView(replacement);
+    const again = game.playerView(replacement);
+    expect(converted.private.converted).toBe(true);
+    expect(converted.private).toEqual(again.private);
+    const convertedPlayer = game.state.players.find((player) => player.id === replacement)!;
+    convertedPlayer.power = 'Lantern';
+    game.state.phase = 'council';
+    game.usePower(replacement, game.state.players.find((player) => player.id !== replacement)!.id);
+    const lantern = game.playerView(replacement).private.lanternAlignment!;
+    const target = game.state.players.find((player) => player.id === lantern.playerId)!;
+    expect(lantern.alignment).not.toBe(target.alignment);
+    expect(converted.private.exactIdentity === null || (converted.private.exactIdentity >= 0 && converted.private.exactIdentity <= 8)).toBe(true);
+    Object.values(converted.private.severity).forEach((severity) => expect(severity).toBeGreaterThanOrEqual(1));
+    Object.values(converted.private.severity).forEach((severity) => expect(severity).toBeLessThanOrEqual(3));
+    const unconverted = game.state.players.filter((player) => player.id !== replacement);
+    unconverted.forEach((player) => {
+      const view = game.playerView(player.id);
+      expect(view.private.converted).toBe(false);
+      const truth = player.power === 'Hull'
+        ? Object.fromEntries(game.state.damage.map((damage) => [damage.system, damage.severity]))
+        : player.power === player.system ? Object.fromEntries(game.state.damage
+          .filter((damage) => damage.system === player.system)
+          .map((damage) => [damage.system, damage.severity])) : {};
+      expect(view.private.severity).toEqual(truth);
+    });
   });
 
   it('emits queued phases once and in order', () => {

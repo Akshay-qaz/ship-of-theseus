@@ -25,6 +25,11 @@ export class Voyage {
   private readonly privateSeverity = new Map<string, Partial<Record<System, number>>>();
   private readonly lanternResults = new Map<string, { playerId: string; alignment: Alignment }>();
   private readonly forecasts = new Map<string, System[]>();
+  private readonly corruptedSeverity = new Map<string, Partial<Record<System, number>>>();
+  private readonly corruptedLantern = new Map<string, { playerId: string; alignment: Alignment }>();
+  private readonly corruptedForecasts = new Map<string, System[]>();
+  private readonly corruptedIdentity = new Map<string, number>();
+  private readonly corruptedTargetCounts = new Map<string, number>();
   private readonly conversionSeen = new Set<string>();
   private transitionQueue: Phase[] = [];
   private transitioning = false;
@@ -32,6 +37,7 @@ export class Voyage {
   private replacedSystems = new Set<System>();
   private retiredSystems = new Set<System>();
   private readonly targetCounts = new Map<string, number>();
+  private identityStart = 8;
 
   constructor(roomCode: string, rng: Rng = new SeededRng(), timers: PhaseTimers = {}) {
     this.rng = rng; this.timers = timers;
@@ -63,6 +69,7 @@ export class Voyage {
     if (this.state.players.length < 6) throw new Error('At least six players required');
     if (this.state.players.some((player) => !player.ready)) throw new Error('All players must be ready');
     this.state.identity = Math.min(this.state.players.length, 6 + this.rng.int(3));
+    this.identityStart = this.state.identity;
     this.advancePhase('storm');
   }
   addChat(id: string, text: string): void {
@@ -158,12 +165,24 @@ export class Voyage {
   playerView(id: string): { public: PublicView; private: PrivateView } {
     const player = this.player(id);
     return { public: this.publicView(), private: {
-      playerId: id, alignment: player.alignment, severity: this.privateSeverity.get(id) ?? {},
-      lanternAlignment: this.lanternResults.get(id) ?? null, converted: this.conversionSeen.has(id),
+      playerId: id, alignment: player.alignment,
+      lanternAlignment: this.conversionSeen.has(id)
+        ? (this.corruptedLantern.get(id) ?? this.lanternResults.get(id) ?? null)
+        : (this.lanternResults.get(id) ?? null),
       power: player.power,
       activatablePower: ['Salvaged Plank', 'Hull', 'CrowsNest', 'Galley'].includes(player.power) ? null : player.power,
-      exactIdentity: player.system === 'CrowsNest' && player.power === 'CrowsNest' ? this.state.identity : null,
-      forecast: this.forecasts.get(id) ?? [], targetCount: this.targetCounts.get(id) ?? null,
+      converted: this.conversionSeen.has(id),
+      exactIdentity: player.system === 'CrowsNest' && player.power === 'CrowsNest'
+        ? (this.corruptedIdentity.get(id) ?? this.state.identity) : null,
+      severity: this.conversionSeen.has(id)
+        ? (this.corruptedSeverity.get(id) ?? this.privateSeverity.get(id) ?? {})
+        : (this.privateSeverity.get(id) ?? {}),
+      forecast: this.conversionSeen.has(id)
+        ? (this.corruptedForecasts.get(id) ?? this.forecasts.get(id) ?? [])
+        : (this.forecasts.get(id) ?? []),
+      targetCount: this.conversionSeen.has(id)
+        ? (this.corruptedTargetCounts.get(id) ?? this.targetCounts.get(id) ?? null)
+        : (this.targetCounts.get(id) ?? null),
     } };
   }
   private beginStorm(): void {
@@ -173,9 +192,11 @@ export class Voyage {
     this.state.damage = currentTargets.map((system) => ({ system, severity: this.rng.int(3) + 1 }));
     this.state.forecast = this.rollTargets();
     this.state.players.forEach((player) => {
+      this.privateSeverity.delete(player.id);
       const owned = this.state.damage.filter((damage) => damage.system === player.system);
       if (owned.length) this.privateSeverity.set(player.id, Object.fromEntries(owned.map((damage) => [damage.system, damage.severity])));
       if (player.power === 'Hull') this.privateSeverity.set(player.id, Object.fromEntries(this.state.damage.map((damage) => [damage.system, damage.severity])));
+      if (player.alignment === 'Replacement') this.corruptCurrentReadings(player.id);
     });
   }
   private rollTargets(): System[] {
@@ -215,6 +236,7 @@ export class Voyage {
     if (owner && !this.retiredSystems.has(chosen)) {
       const wasAlreadyReplaced = this.replacedSystems.has(chosen);
       owner.replaced = true; owner.power = this.rng.pick(REPLACEMENT_POWERS) as Power;
+      this.privateSeverity.delete(owner.id);
       this.state.replacements += 1; this.replacedSystems.add(chosen); this.state.lastSacrificed = chosen;
       this.state.lastWasAlreadyReplaced = wasAlreadyReplaced;
       this.state.message = `${chosen} replaced`;
@@ -225,8 +247,7 @@ export class Voyage {
     this.state.players.forEach((player) => { if (!player.connected) player.missedRounds += 1; });
     const chosen = this.state.lastSacrificed;
     if (chosen) {
-      if (this.state.lastWasAlreadyReplaced) this.loseMorale();
-      else this.state.identity = Math.max(0, this.state.identity - 1);
+      if (!this.state.lastWasAlreadyReplaced) this.state.identity = Math.max(0, this.state.identity - 1);
       if (!this.state.damage.some((damage) => damage.system === chosen)) this.loseMorale();
     }
     if (this.state.storm % 2 === 0 && this.state.players.some((player) => player.system === 'Galley' && player.power === 'Galley')) this.changeMorale(1);
@@ -235,6 +256,7 @@ export class Voyage {
     if (this.state.identity <= 4 && !this.state.replacementPlayerId) {
       const replacement = this.rng.pick(this.state.players.filter((player) => player.replaced));
       replacement.alignment = 'Replacement'; this.state.replacementPlayerId = replacement.id; this.conversionSeen.add(replacement.id);
+      this.createCorruption(replacement.id);
     }
     if (this.state.storm >= 8) this.transitionQueue.push('mutiny');
     else if (this.state.delayed) { this.state.delayed = false; this.transitionQueue.push('delay'); }
@@ -264,9 +286,60 @@ export class Voyage {
     if (!targetId || targetId === player.id) throw new Error('Lantern needs another player');
     const target = this.player(targetId); let alignment = target.alignment;
     if (player.power === 'Ghost Lantern' && this.rng.int(4) === 0) alignment = alignment === 'Original Crew' ? 'Replacement' : 'Original Crew';
-    this.lanternResults.set(player.id, { playerId: targetId, alignment });
+    const result = { playerId: targetId, alignment };
+    this.lanternResults.set(player.id, result);
+    if (player.alignment === 'Replacement') {
+      this.corruptedLantern.set(player.id, {
+        playerId: targetId,
+        alignment: alignment === 'Original Crew' ? 'Replacement' : 'Original Crew',
+      });
+    }
   }
   private setForecast(id: string, forecast: System[]): void { this.forecasts.set(id, [...forecast]); }
+  private createCorruption(id: string): void {
+    const player = this.player(id);
+    const severity = this.privateSeverity.get(id) ?? {};
+    const corruptedSeverity: Partial<Record<System, number>> = {};
+    Object.entries(severity).forEach(([system, value]) => {
+      corruptedSeverity[system as System] = this.corruptRange(value as number, 1, 3);
+    });
+    this.corruptedSeverity.set(id, corruptedSeverity);
+    const lantern = this.lanternResults.get(id);
+    if (lantern) {
+      this.corruptedLantern.set(id, {
+        playerId: lantern.playerId,
+        alignment: lantern.alignment === 'Original Crew' ? 'Replacement' : 'Original Crew',
+      });
+    }
+    const forecast = this.forecasts.get(id);
+    if (forecast?.length) this.corruptedForecasts.set(id, this.corruptForecast(forecast));
+    const identity = player.system === 'CrowsNest' && player.power === 'CrowsNest' ? this.state.identity : null;
+    if (identity !== null) this.corruptedIdentity.set(id, this.corruptRange(identity, 0, this.identityStart));
+    const targetCount = this.targetCounts.get(id);
+    if (targetCount !== undefined) this.corruptedTargetCounts.set(id, targetCount === 2 ? 3 : 2);
+  }
+  private corruptCurrentReadings(id: string): void {
+    const truth = this.privateSeverity.get(id) ?? {};
+    const corrupt: Partial<Record<System, number>> = {};
+    Object.entries(truth).forEach(([system, value]) => {
+      corrupt[system as System] = this.corruptedSeverity.get(id)?.[system as System] ?? this.corruptRange(value as number, 1, 3);
+    });
+    this.corruptedSeverity.set(id, corrupt);
+  }
+  private corruptRange(value: number, min: number, max: number): number {
+    if (min === max) return value;
+    const options = Array.from({ length: max - min + 1 }, (_, index) => min + index).filter((candidate) => candidate !== value);
+    return this.rng.pick(options);
+  }
+  private corruptForecast(forecast: System[]): System[] {
+    const systems = [...systemsForPlayers(this.state.players.length)].filter((system) => !this.retiredSystems.has(system));
+    const result = [...forecast];
+    if (systems.length > forecast.length) {
+      const replacement = systems.find((system) => !forecast.includes(system));
+      if (replacement) result[0] = replacement;
+    }
+    return result;
+  }
   private requirePhase(phase: Phase): void { if (this.state.phase !== phase) throw new Error(`Power requires ${phase}`); }
   private identityBand(): IdentityBand {
     if (this.state.identity >= 7) return 'Sound';

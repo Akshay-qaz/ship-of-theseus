@@ -29,6 +29,7 @@ data class PublicGameState(
 )
 
 data class ChatMessage(val playerName: String, val text: String, val storm: Int, val phase: String)
+
 data class TimelineEvent(val kind: String, val storm: Int, val system: String?, val playerId: String)
 
 data class PrivateGameState(

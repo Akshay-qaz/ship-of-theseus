@@ -20,13 +20,14 @@ Date: 2026-08-08
   - `PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH`
 - No credentials were required.
 - Downloaded Gradle 8.9 and generated `android/gradlew` and wrapper metadata.
-- Initially observed transient Maven Central HTTP 429 responses during plugin
-  resolution. The mirror workaround was removed after dependency artifacts were
-  cached; Gradle now uses only `google()` and `mavenCentral()`.
-- Before mirror removal, `./gradlew assembleDebug` installed the missing Build
-  Tools 34 transitively and completed successfully. After removal, a later
-  canonical-repository retry was blocked by Maven Central's HTTP 429 rate limit;
-  offline mode could not satisfy uncached plugin artifacts.
+- Maven Central is persistently rate-limited from this box's egress IP:
+  `repo1.maven.org` and `repo.maven.apache.org` return HTTP 429. The Android
+  build uses Google's official byte-for-byte Central mirror,
+  `https://maven-central.storage-download.googleapis.com/maven2`, ordered
+  before `mavenCentral()` (with `google()` first).
+- Gradle dependency verification is enabled in strict mode with SHA-256
+  checksums recorded in `android/gradle/verification-metadata.xml`. No
+  signature verification is enabled.
 - Attempted to boot `ship_api35` with hardware acceleration first; the emulator
   reported that `/dev/kvm` is owned by group `kvm` but the `ubuntu` user is not
   a member. Retried with `-accel off`; the software emulator reached partial

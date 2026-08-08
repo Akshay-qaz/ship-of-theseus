@@ -4,6 +4,7 @@
         android:theme="@style/Theme.ShipOfTheseus"
         android:label="Ship of Theseus"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true">
         <activity
             android:name=".MainActivity"

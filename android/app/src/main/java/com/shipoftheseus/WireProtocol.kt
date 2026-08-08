@@ -20,13 +20,18 @@ object WireProtocol {
     fun ready(ready: Boolean): String = JSONObject().put("type", "ready").put("ready", ready).toString()
 
     fun start(): String = JSONObject().put("type", "start").toString()
+
     fun vote(system: String): String = JSONObject().put("type", "vote").put("system", system).toString()
+
     fun accuse(playerId: String): String = JSONObject().put("type", "accuse").put("suspectId", playerId).toString()
+
     fun chat(text: String): String = JSONObject().put("type", "chat").put("text", text).toString()
-    fun power(targetId: String? = null): String = JSONObject().apply {
-        put("type", "power")
-        targetId?.let { put("targetId", it) }
-    }.toString()
+
+    fun power(targetId: String? = null): String =
+        JSONObject().apply {
+            put("type", "power")
+            targetId?.let { put("targetId", it) }
+        }.toString()
 
     fun parse(raw: String): IncomingMessage {
         val json = runCatching { JSONObject(raw) }.getOrNull() ?: return IncomingMessage.Unknown(null)
@@ -123,7 +128,14 @@ object WireProtocol {
         return buildList {
             for (index in 0 until array.length()) {
                 val item = array.optJSONObject(index) ?: continue
-                add(TimelineEvent(item.optString("kind"), item.optInt("storm"), item.optString("system").ifEmpty { null }, item.optString("playerId")))
+                add(
+                    TimelineEvent(
+                        item.optString("kind"),
+                        item.optInt("storm"),
+                        item.optString("system").ifEmpty { null },
+                        item.optString("playerId"),
+                    ),
+                )
             }
         }
     }

@@ -71,17 +71,21 @@ fun ShipOfTheseusApp(viewModel: ClientViewModel = viewModel()) {
 private fun ConnectionBanner(state: ClientUiState) {
     Text(
         "Connection: ${state.connection}",
-        color = if (state.connection == ConnectionState.Connected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.error
-        },
+        color =
+            if (state.connection == ConnectionState.Connected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.error
+            },
     )
     state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }
 
 @Composable
-private fun HomeScreen(state: ClientUiState, viewModel: ClientViewModel) {
+private fun HomeScreen(
+    state: ClientUiState,
+    viewModel: ClientViewModel,
+) {
     var name by remember { mutableStateOf("") }
     var roomCode by remember { mutableStateOf("") }
     var serverUrl by remember { mutableStateOf("ws://10.0.2.2:8080") }
@@ -115,7 +119,10 @@ private fun HomeScreen(state: ClientUiState, viewModel: ClientViewModel) {
 }
 
 @Composable
-private fun LobbyScreen(state: ClientUiState, viewModel: ClientViewModel) {
+private fun LobbyScreen(
+    state: ClientUiState,
+    viewModel: ClientViewModel,
+) {
     val public = state.publicState ?: return
     val session = state.session ?: return
     val me = public.players.firstOrNull { it.id == session.playerId }
@@ -134,8 +141,9 @@ private fun LobbyScreen(state: ClientUiState, viewModel: ClientViewModel) {
                 Text(if (me?.ready == true) "Unready" else "Ready")
             }
             Button(
-                enabled = public.hostId == session.playerId && public.players.size >= 6 &&
-                    public.players.all { it.ready },
+                enabled =
+                    public.hostId == session.playerId && public.players.size >= 6 &&
+                        public.players.all { it.ready },
                 onClick = viewModel::start,
             ) { Text("Start voyage") }
         }
@@ -179,7 +187,10 @@ private fun DamageReportScreen(state: ClientUiState) {
 }
 
 @Composable
-private fun CouncilScreen(state: ClientUiState, viewModel: ClientViewModel) {
+private fun CouncilScreen(
+    state: ClientUiState,
+    viewModel: ClientViewModel,
+) {
     val public = state.publicState ?: return
     val privateState = state.privateState ?: return
     var seconds by remember(public.storm) { mutableIntStateOf(90) }
@@ -213,7 +224,10 @@ private fun CouncilScreen(state: ClientUiState, viewModel: ClientViewModel) {
 }
 
 @Composable
-private fun VoteScreen(state: ClientUiState, viewModel: ClientViewModel) {
+private fun VoteScreen(
+    state: ClientUiState,
+    viewModel: ClientViewModel,
+) {
     val public = state.publicState ?: return
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         ConnectionBanner(state)
@@ -231,7 +245,10 @@ private fun VoteScreen(state: ClientUiState, viewModel: ClientViewModel) {
 }
 
 @Composable
-private fun PrivateRevealScreen(privateState: PrivateGameState, viewModel: ClientViewModel) {
+private fun PrivateRevealScreen(
+    privateState: PrivateGameState,
+    viewModel: ClientViewModel,
+) {
     Column(
         Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -247,7 +264,10 @@ private fun PrivateRevealScreen(privateState: PrivateGameState, viewModel: Clien
 }
 
 @Composable
-private fun MutinyScreen(state: ClientUiState, viewModel: ClientViewModel) {
+private fun MutinyScreen(
+    state: ClientUiState,
+    viewModel: ClientViewModel,
+) {
     val public = state.publicState ?: return
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         ConnectionBanner(state)

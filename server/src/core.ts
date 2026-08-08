@@ -141,7 +141,7 @@ export class Voyage {
     if (this.transitioning) return;
     this.transitioning = true;
     try {
-      while (this.transitionQueue.length && !this.state.winner) {
+      while (this.transitionQueue.length && (!this.state.winner || this.transitionQueue[0] === 'results')) {
         const phase = this.transitionQueue.shift() as Phase;
         this.state.phase = phase; this.state.message = null;
         if (phase === 'storm') this.beginStorm();

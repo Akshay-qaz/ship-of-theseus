@@ -47,11 +47,18 @@ class ClientViewModel : ViewModel() {
     fun ready(ready: Boolean) = connection.send(WireProtocol.ready(ready))
 
     fun start() = connection.send(WireProtocol.start())
+
     fun vote(system: String) = connection.send(WireProtocol.vote(system))
+
     fun accuse(playerId: String) = connection.send(WireProtocol.accuse(playerId))
+
     fun chat(text: String) = connection.send(WireProtocol.chat(text))
+
     fun usePower(targetId: String? = null) = connection.send(WireProtocol.power(targetId))
-    fun dismissReveal() { _uiState.value = _uiState.value.copy(revealDismissed = true) }
+
+    fun dismissReveal() {
+        _uiState.value = _uiState.value.copy(revealDismissed = true)
+    }
 
     private fun connect(url: String) {
         connection.connect(url)
@@ -60,14 +67,16 @@ class ClientViewModel : ViewModel() {
     private fun handleMessage(message: IncomingMessage) {
         viewModelScope.launch {
             when (message) {
-                is IncomingMessage.Joined -> _uiState.value =
-                    _uiState.value.copy(session = message.session, error = null, revealDismissed = false)
+                is IncomingMessage.Joined ->
+                    _uiState.value =
+                        _uiState.value.copy(session = message.session, error = null, revealDismissed = false)
                 is IncomingMessage.State ->
-                    _uiState.value = _uiState.value.copy(
-                        publicState = message.publicState,
-                        privateState = message.privateState,
-                        error = null,
-                    )
+                    _uiState.value =
+                        _uiState.value.copy(
+                            publicState = message.publicState,
+                            privateState = message.privateState,
+                            error = null,
+                        )
                 is IncomingMessage.Error -> _uiState.value = _uiState.value.copy(error = message.message)
                 is IncomingMessage.Unknown -> Unit
             }

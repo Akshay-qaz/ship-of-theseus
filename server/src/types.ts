@@ -31,6 +31,7 @@ export type Phase =
   | 'vote'
   | 'replacement'
   | 'integrityCheck'
+  | 'delay'
   | 'mutiny'
   | 'results';
 export type Alignment = 'Original Crew' | 'Replacement';
@@ -79,6 +80,7 @@ export interface GameState {
   usedPowers: string[];
   lastSacrificed: System | null;
   lastWasAlreadyReplaced: boolean;
+  cancelNextReplacement: boolean;
 }
 
 export interface ChatMessage {
@@ -107,7 +109,6 @@ export interface PublicView {
   morale: number;
   identityBand: IdentityBand;
   replacements: number;
-  threshold: number;
   damagedSystems: System[];
   voteTally: Partial<Record<System, number>>;
   chat: ChatMessage[];
@@ -121,6 +122,8 @@ export interface PrivateView {
   severity: Partial<Record<System, number>>;
   lanternAlignment: { playerId: string; alignment: Alignment } | null;
   converted: boolean;
+  power: Power;
+  activatablePower: Power | null;
   exactIdentity: number | null;
   forecast: System[];
   targetCount: number | null;

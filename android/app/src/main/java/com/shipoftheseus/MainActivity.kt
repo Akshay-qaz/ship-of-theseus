@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -193,14 +192,15 @@ private fun CouncilScreen(
 ) {
     val public = state.publicState ?: return
     val privateState = state.privateState ?: return
-    var seconds by remember(public.storm) { mutableIntStateOf(90) }
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
     var chatText by remember { mutableStateOf("") }
-    LaunchedEffect(public.storm) {
-        while (seconds > 0) {
-            delay(1000)
-            seconds--
+    LaunchedEffect(public.deadline) {
+        while (public.deadline != null) {
+            now = System.currentTimeMillis()
+            delay(500)
         }
     }
+    val seconds = public.deadline?.let { ((it - now).coerceAtLeast(0L) + 999L) / 1000L } ?: 0L
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         ConnectionBanner(state)
         Text("Council · ${seconds}s", style = MaterialTheme.typography.headlineMedium)

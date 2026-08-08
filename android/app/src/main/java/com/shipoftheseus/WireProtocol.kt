@@ -82,6 +82,7 @@ object WireProtocol {
                 publicJson.optBoolean("publicVote"),
                 publicJson.optString("winner").ifEmpty { null },
                 publicJson.optString("message").ifEmpty { null },
+                publicJson.optLong("deadline").takeIf { publicJson.has("deadline") && !publicJson.isNull("deadline") },
                 publicJson.optTimeline("timeline"),
                 publicJson.optString("replacementPlayerId").ifEmpty { null },
             ),

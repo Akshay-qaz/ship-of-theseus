@@ -24,6 +24,7 @@ data class PublicGameState(
     val publicVote: Boolean,
     val winner: String?,
     val message: String?,
+    val deadline: Long?,
     val timeline: List<TimelineEvent>,
     val replacementPlayerId: String?,
 )

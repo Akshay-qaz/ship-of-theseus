@@ -28,6 +28,11 @@ Date: 2026-08-08
 - Gradle dependency verification is enabled in strict mode with SHA-256
   checksums recorded in `android/gradle/verification-metadata.xml`. No
   signature verification is enabled.
+- The Google Central mirror is opt-in rather than the default repository:
+  local builds on this box use
+  `./gradlew -PshipUseGoogleCentralMirror=true ...`; CI omits that property and
+  resolves from canonical `mavenCentral()` only. Strict dependency verification
+  remains enabled in both modes.
 - Attempted to boot `ship_api35` with hardware acceleration first; the emulator
   reported that `/dev/kvm` is owned by group `kvm` but the `ubuntu` user is not
   a member. Retried with `-accel off`; the software emulator reached partial

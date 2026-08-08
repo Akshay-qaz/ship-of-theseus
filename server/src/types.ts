@@ -115,6 +115,7 @@ export interface PublicView {
   publicVote: boolean;
   winner: GameState['winner'];
   message: string | null;
+  deadline: number | null;
   timeline: TimelineEvent[];
   replacementPlayerId?: string;
 }

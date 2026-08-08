@@ -2,18 +2,49 @@ import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { createRoomCode, SeededRng, Voyage, type Rng } from './core.js';
 import type { ClientMessage } from './protocol.js';
+import type { PublicView } from './types.js';
 import type { Phase } from './types.js';
 
 interface Room {
   voyage: Voyage;
   sockets: Map<string, WebSocket>;
+  phaseDeadline: number | null;
+  phaseTimer: ReturnType<typeof setTimeout> | null;
 }
+
+export interface RoomServerOptions {
+  now?: () => number;
+  phaseDurations?: Partial<Record<Phase, number>>;
+  setTimeout?: (callback: () => void, delay: number) => ReturnType<typeof setTimeout>;
+  clearTimeout?: (timer: ReturnType<typeof setTimeout>) => void;
+}
+
+export const DEFAULT_PHASE_DURATIONS: Record<Phase, number> = {
+  lobby: 0,
+  storm: 5_000,
+  damageReport: 5_000,
+  council: 90_000,
+  vote: 30_000,
+  replacement: 0,
+  integrityCheck: 0,
+  delay: 0,
+  mutiny: 90_000,
+  results: 0,
+};
 
 export class RoomServer {
   readonly rooms = new Map<string, Room>();
   private readonly rng: Rng;
-  constructor(rng: Rng = new SeededRng(42)) {
+  private readonly now: () => number;
+  private readonly phaseDurations: Record<Phase, number>;
+  private readonly setTimer: NonNullable<RoomServerOptions['setTimeout']>;
+  private readonly clearTimer: NonNullable<RoomServerOptions['clearTimeout']>;
+  constructor(rng: Rng = new SeededRng(42), options: RoomServerOptions = {}) {
     this.rng = rng;
+    this.now = options.now ?? Date.now;
+    this.phaseDurations = { ...DEFAULT_PHASE_DURATIONS, ...options.phaseDurations };
+    this.setTimer = options.setTimeout ?? ((callback, delay) => setTimeout(callback, delay));
+    this.clearTimer = options.clearTimeout ?? ((timer) => clearTimeout(timer));
   }
 
   create(name: string): { roomCode: string; playerId: string; playerToken: string } {
@@ -21,11 +52,13 @@ export class RoomServer {
     do {
       code = createRoomCode(this.rng);
     } while (this.rooms.has(code));
-    const voyage = new Voyage(code, this.rng);
+    const voyage = new Voyage(code, this.rng, {
+      phaseChanged: (phase) => this.phaseChanged(code, phase),
+    });
     const playerId = randomUUID();
     const playerToken = randomUUID();
     voyage.addPlayer(playerId, name, playerToken);
-    this.rooms.set(code, { voyage, sockets: new Map() });
+    this.rooms.set(code, { voyage, sockets: new Map(), phaseDeadline: null, phaseTimer: null });
     return { roomCode: code, playerId, playerToken };
   }
 
@@ -50,6 +83,10 @@ export class RoomServer {
     if (!room) throw new Error('Room not found');
     room.sockets.set(playerId, socket);
     room.voyage.setConnected(playerId, true);
+    if (room.phaseDeadline !== null && room.phaseTimer === null) {
+      if (room.phaseDeadline <= this.now()) this.tick();
+      else room.phaseTimer = this.setTimer(() => this.tick(), room.phaseDeadline - this.now());
+    }
     this.send(room, playerId);
   }
 
@@ -58,6 +95,8 @@ export class RoomServer {
     if (!room) return;
     room.sockets.delete(playerId);
     if (room.voyage.state.players.some((player) => player.id === playerId)) room.voyage.setConnected(playerId, false);
+    if (room.sockets.size === 0) this.clearPhaseTimer(room, false);
+    if (room.voyage.state.phase === 'results') this.clearPhaseTimer(room);
   }
 
   handle(roomCode: string, playerId: string, message: ClientMessage): void {
@@ -84,10 +123,53 @@ export class RoomServer {
     room.voyage.advancePhase(phase);
     this.broadcast(room);
   }
+  publicView(roomCode: string): PublicView {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Room not found');
+    return { ...room.voyage.publicView(), deadline: room.phaseDeadline };
+  }
+  tick(now = this.now()): void {
+    this.rooms.forEach((room) => {
+      if (room.phaseDeadline === null) return;
+      if (room.phaseDeadline > now) {
+        const deadline = room.phaseDeadline;
+        this.clearPhaseTimer(room);
+        room.phaseDeadline = deadline;
+        room.phaseTimer = this.setTimer(() => this.tick(), Math.max(1, deadline - now));
+        return;
+      }
+      const phase = room.voyage.state.phase;
+      this.clearPhaseTimer(room);
+      room.voyage.deadlineReached(phase);
+      this.broadcast(room);
+    });
+  }
+  private phaseChanged(roomCode: string, phase: Phase): void {
+    const room = this.rooms.get(roomCode);
+    if (!room) return;
+    this.clearPhaseTimer(room);
+    const duration = this.phaseDurations[phase];
+    if (duration > 0) {
+      room.phaseDeadline = this.now() + duration;
+      room.phaseTimer = this.setTimer(() => this.tick(), duration);
+    }
+    this.broadcast(room);
+  }
+  private clearPhaseTimer(room: Room, clearDeadline = true): void {
+    if (room.phaseTimer !== null) this.clearTimer(room.phaseTimer);
+    room.phaseTimer = null;
+    if (clearDeadline) room.phaseDeadline = null;
+  }
 
   private send(room: Room, playerId: string): void {
     const socket = room.sockets.get(playerId);
-    if (socket?.readyState === 1) socket.send(JSON.stringify({ type: 'state', ...room.voyage.playerView(playerId) }));
+    if (socket?.readyState === 1) {
+      socket.send(JSON.stringify({
+        type: 'state',
+        public: { ...room.voyage.publicView(), deadline: room.phaseDeadline },
+        private: room.voyage.playerView(playerId).private,
+      }));
+    }
   }
 
   private broadcast(room: Room): void {

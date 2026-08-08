@@ -163,10 +163,19 @@ export class Voyage {
       phase: this.state.phase, storm: this.state.storm, morale: this.state.morale, identityBand: this.identityBand(),
       replacements: this.state.replacements, damagedSystems: this.state.damage.map(({ system }) => system),
       voteTally, chat: [...this.state.chat], publicVote: this.state.publicVote, winner: this.state.winner, message: this.state.message,
+      deadline: null,
       timeline: this.timeline.filter((event) => event.kind !== 'theseus' || this.state.phase === 'results'),
       ...(this.state.phase === 'results' && this.state.replacementPlayerId
         ? { replacementPlayerId: this.state.replacementPlayerId } : {}),
     };
+  }
+  deadlineReached(phase: Phase): void {
+    if (this.state.phase !== phase) return;
+    if (phase === 'vote') this.advancePhase('replacement');
+    else if (phase === 'mutiny') {
+      this.resolveMutiny();
+      this.advancePhase('results');
+    } else this.advancePhase();
   }
   playerView(id: string): { public: PublicView; private: PrivateView } {
     const player = this.player(id);

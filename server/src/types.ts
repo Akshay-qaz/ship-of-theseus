@@ -127,4 +127,6 @@ export interface PrivateView {
   exactIdentity: number | null;
   forecast: System[];
   targetCount: number | null;
+  readingsUnreliable: boolean;
+  reveal: string | null;
 }

@@ -35,7 +35,21 @@ function spendLowMoralePowers(game: Voyage): void {
 }
 
 function collectReports(game: Voyage): Map<string, ReturnType<Voyage['playerView']>['private']> {
-  return new Map(game.state.players.map((player) => [player.id, game.playerView(player.id).private]));
+  return new Map(game.state.players.map((player) => {
+    const report = game.playerView(player.id).private;
+    if (!report.readingsUnreliable) return [player.id, report];
+    return [player.id, {
+      ...report,
+      severity: Object.fromEntries(Object.keys(report.severity).map((system) => [system, 2])),
+      exactIdentity: report.exactIdentity === null ? null : 4,
+      targetCount: report.targetCount === null ? null : 2,
+      forecast: report.forecast.length ? [report.forecast[0]!] : [],
+      lanternAlignment: report.lanternAlignment ? {
+        ...report.lanternAlignment,
+        alignment: 'Original Crew' as const,
+      } : null,
+    }];
+  }));
 }
 
 function accusationTarget(game: Voyage, rng: SeededRng, policy: Policy,
@@ -46,7 +60,8 @@ function accusationTarget(game: Voyage, rng: SeededRng, policy: Policy,
       const hullReport = reports.get(hull.id)?.severity ?? {};
       const contradictions = game.state.players.filter((player) => {
         const own = reports.get(player.id)?.severity[player.system];
-        return own !== undefined && hullReport[player.system] !== undefined && own !== hullReport[player.system];
+        return own !== undefined && hullReport[player.system] !== undefined &&
+          Math.abs(own - hullReport[player.system]!) > 1;
       });
       if (contradictions.length) return rng.pick(contradictions).id;
     }

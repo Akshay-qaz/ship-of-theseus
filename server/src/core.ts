@@ -35,6 +35,7 @@ export class Voyage {
   private transitioning = false;
   private chatSequence = 0;
   private replacedSystems = new Set<System>();
+  private repairCounts = new Map<System, number>();
   private retiredSystems = new Set<System>();
   private readonly targetCounts = new Map<string, number>();
   private identityStart = 8;
@@ -183,6 +184,8 @@ export class Voyage {
       targetCount: this.conversionSeen.has(id)
         ? (this.corruptedTargetCounts.get(id) ?? this.targetCounts.get(id) ?? null)
         : (this.targetCounts.get(id) ?? null),
+      readingsUnreliable: this.conversionSeen.has(id),
+      reveal: this.conversionSeen.has(id) ? 'Your instruments no longer agree with the ship.' : null,
     } };
   }
   private beginStorm(): void {
@@ -238,6 +241,7 @@ export class Voyage {
       owner.replaced = true; owner.power = this.rng.pick(REPLACEMENT_POWERS) as Power;
       this.privateSeverity.delete(owner.id);
       this.state.replacements += 1; this.replacedSystems.add(chosen); this.state.lastSacrificed = chosen;
+      if (wasAlreadyReplaced) this.repairCounts.set(chosen, (this.repairCounts.get(chosen) ?? 0) + 1);
       this.state.lastWasAlreadyReplaced = wasAlreadyReplaced;
       this.state.message = `${chosen} replaced`;
     }
@@ -248,6 +252,7 @@ export class Voyage {
     const chosen = this.state.lastSacrificed;
     if (chosen) {
       if (!this.state.lastWasAlreadyReplaced) this.state.identity = Math.max(0, this.state.identity - 1);
+      else if ((this.repairCounts.get(chosen) ?? 0) > 1) this.loseMorale();
       if (!this.state.damage.some((damage) => damage.system === chosen)) this.loseMorale();
     }
     if (this.state.storm % 2 === 0 && this.state.players.some((player) => player.system === 'Galley' && player.power === 'Galley')) this.changeMorale(1);

@@ -50,6 +50,17 @@ describe('revised meters and privacy', () => {
     expect(game.state.morale).toBe(5);
   });
 
+  it('charges Morale on the second repair even when the patch is damaged', () => {
+    const game = voyage();
+    storm(game, 'Sail', true);
+    const identity = game.state.identity;
+    storm(game, 'Sail', true);
+    expect(game.state.identity).toBe(identity);
+    expect(game.state.morale).toBe(5);
+    storm(game, 'Sail', true);
+    expect(game.state.morale).toBe(4);
+  });
+
   it('converts exactly one player when hidden Identity reaches four or below', () => {
     const game = voyage();
     for (const system of ['Sail', 'Rudder', 'Hull', 'Mast'] as System[]) storm(game, system, true);
@@ -65,6 +76,8 @@ describe('revised meters and privacy', () => {
     const converted = game.playerView(replacement);
     const again = game.playerView(replacement);
     expect(converted.private.converted).toBe(true);
+    expect(converted.private.readingsUnreliable).toBe(true);
+    expect(converted.private.reveal).toContain('instruments');
     expect(converted.private).toEqual(again.private);
     const convertedPlayer = game.state.players.find((player) => player.id === replacement)!;
     convertedPlayer.power = 'Lantern';

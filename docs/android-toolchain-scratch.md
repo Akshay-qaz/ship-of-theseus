@@ -19,3 +19,13 @@ Date: 2026-08-08
   - `ANDROID_SDK_ROOT=/home/ubuntu/android-sdk`
   - `PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH`
 - No credentials were required.
+- Downloaded Gradle 8.9 and generated `android/gradlew` and wrapper metadata.
+- Added the Aliyun Maven public mirror to Gradle repository resolution because
+  Maven Central returned repeated HTTP 429 responses during plugin resolution.
+- `./gradlew assembleDebug` installs the missing Build Tools 34 transitively and
+  completes successfully.
+- Attempted to boot `ship_api35` with hardware acceleration first; the emulator
+  reported that `/dev/kvm` is owned by group `kvm` but the `ubuntu` user is not
+  a member. Retried with `-accel off`; the software emulator reached partial
+  Android boot but package-manager/activity services remained unavailable and
+  `adb install` did not complete. The emulator was stopped after this attempt.

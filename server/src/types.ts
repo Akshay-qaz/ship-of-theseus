@@ -115,6 +115,14 @@ export interface PublicView {
   publicVote: boolean;
   winner: GameState['winner'];
   message: string | null;
+  timeline: TimelineEvent[];
+  replacementPlayerId?: string;
+}
+export interface TimelineEvent {
+  kind: 'replacement' | 'theseus';
+  storm: number;
+  system?: System;
+  playerId: string;
 }
 export interface PrivateView {
   playerId: string;

@@ -20,12 +20,19 @@ Date: 2026-08-08
   - `PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH`
 - No credentials were required.
 - Downloaded Gradle 8.9 and generated `android/gradlew` and wrapper metadata.
-- Added the Aliyun Maven public mirror to Gradle repository resolution because
-  Maven Central returned repeated HTTP 429 responses during plugin resolution.
-- `./gradlew assembleDebug` installs the missing Build Tools 34 transitively and
-  completes successfully.
+- Initially observed transient Maven Central HTTP 429 responses during plugin
+  resolution. The mirror workaround was removed after dependency artifacts were
+  cached; Gradle now uses only `google()` and `mavenCentral()`.
+- Before mirror removal, `./gradlew assembleDebug` installed the missing Build
+  Tools 34 transitively and completed successfully. After removal, a later
+  canonical-repository retry was blocked by Maven Central's HTTP 429 rate limit;
+  offline mode could not satisfy uncached plugin artifacts.
 - Attempted to boot `ship_api35` with hardware acceleration first; the emulator
   reported that `/dev/kvm` is owned by group `kvm` but the `ubuntu` user is not
   a member. Retried with `-accel off`; the software emulator reached partial
   Android boot but package-manager/activity services remained unavailable and
   `adb install` did not complete. The emulator was stopped after this attempt.
+- Follow-up fix: applied `sudo usermod -aG kvm ubuntu` and
+  `sudo chmod 660 /dev/kvm`. Existing shells were refreshed with `sg kvm -c`.
+  `sg kvm -c 'emulator -accel-check'` now reports:
+  `KVM (version 12) is installed and usable.`

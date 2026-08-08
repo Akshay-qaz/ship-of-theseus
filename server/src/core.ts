@@ -2,6 +2,7 @@ import {
   ALL_SYSTEMS, REPLACEMENT_POWERS, type Alignment, type ChatMessage,
   type GameState, type Heading, type IdentityBand, type Phase, type Player,
   type Power, type PrivateView, type PublicView, type System,
+  type TimelineEvent,
 } from './types.js';
 
 export interface Rng { int(maxExclusive: number): number; pick<T>(items: readonly T[]): T; }
@@ -38,6 +39,7 @@ export class Voyage {
   private repairCounts = new Map<System, number>();
   private retiredSystems = new Set<System>();
   private readonly targetCounts = new Map<string, number>();
+  private readonly timeline: TimelineEvent[] = [];
   private identityStart = 8;
 
   constructor(roomCode: string, rng: Rng = new SeededRng(), timers: PhaseTimers = {}) {
@@ -161,6 +163,9 @@ export class Voyage {
       phase: this.state.phase, storm: this.state.storm, morale: this.state.morale, identityBand: this.identityBand(),
       replacements: this.state.replacements, damagedSystems: this.state.damage.map(({ system }) => system),
       voteTally, chat: [...this.state.chat], publicVote: this.state.publicVote, winner: this.state.winner, message: this.state.message,
+      timeline: this.timeline.filter((event) => event.kind !== 'theseus' || this.state.phase === 'results'),
+      ...(this.state.phase === 'results' && this.state.replacementPlayerId
+        ? { replacementPlayerId: this.state.replacementPlayerId } : {}),
     };
   }
   playerView(id: string): { public: PublicView; private: PrivateView } {
@@ -241,6 +246,7 @@ export class Voyage {
       owner.replaced = true; owner.power = this.rng.pick(REPLACEMENT_POWERS) as Power;
       this.privateSeverity.delete(owner.id);
       this.state.replacements += 1; this.replacedSystems.add(chosen); this.state.lastSacrificed = chosen;
+      this.timeline.push({ kind: 'replacement', storm: this.state.storm, system: chosen, playerId: owner.id });
       if (wasAlreadyReplaced) this.repairCounts.set(chosen, (this.repairCounts.get(chosen) ?? 0) + 1);
       this.state.lastWasAlreadyReplaced = wasAlreadyReplaced;
       this.state.message = `${chosen} replaced`;
@@ -261,6 +267,7 @@ export class Voyage {
     if (this.state.identity <= 4 && !this.state.replacementPlayerId) {
       const replacement = this.rng.pick(this.state.players.filter((player) => player.replaced));
       replacement.alignment = 'Replacement'; this.state.replacementPlayerId = replacement.id; this.conversionSeen.add(replacement.id);
+      this.timeline.push({ kind: 'theseus', storm: this.state.storm, playerId: replacement.id });
       this.createCorruption(replacement.id);
     }
     if (this.state.storm >= 8) this.transitionQueue.push('mutiny');

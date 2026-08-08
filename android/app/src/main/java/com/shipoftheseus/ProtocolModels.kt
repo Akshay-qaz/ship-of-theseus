@@ -17,7 +17,19 @@ data class PublicGameState(
     val storm: Int,
     val morale: Int,
     val identityBand: String,
+    val replacements: Int,
+    val damagedSystems: List<String>,
+    val voteTally: Map<String, Int>,
+    val chat: List<ChatMessage>,
+    val publicVote: Boolean,
+    val winner: String?,
+    val message: String?,
+    val timeline: List<TimelineEvent>,
+    val replacementPlayerId: String?,
 )
+
+data class ChatMessage(val playerName: String, val text: String, val storm: Int, val phase: String)
+data class TimelineEvent(val kind: String, val storm: Int, val system: String?, val playerId: String)
 
 data class PrivateGameState(
     val playerId: String,
@@ -26,6 +38,11 @@ data class PrivateGameState(
     val converted: Boolean,
     val readingsUnreliable: Boolean,
     val reveal: String?,
+    val severity: Map<String, Int>,
+    val exactIdentity: Int?,
+    val forecast: List<String>,
+    val targetCount: Int?,
+    val activatablePower: String?,
 )
 
 data class JoinedSession(val roomCode: String, val playerId: String, val playerToken: String)

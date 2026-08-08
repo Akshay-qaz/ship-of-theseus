@@ -23,7 +23,7 @@
     "error": { "message": "string" }
   },
   "privacy": {
-    "public": "Room-wide state, player identities, systems, replacement markers, morale, identity band, damage system names, vote tally, chat.",
+    "public": "Room-wide state, player identities, systems, replacement markers, morale, identity band, damage system names, vote tally, chat, replacement timeline, and results reveal fields.",
     "private": "Only the addressed player's alignment, readings, power, conversion reveal, exact Identity, forecasts, and power results.",
     "rule": "A state message is serialized separately for each connected player; no player's private payload is broadcast to another player."
   },

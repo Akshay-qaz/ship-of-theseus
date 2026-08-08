@@ -46,8 +46,11 @@ for (let round = 0; round < 8; round++) {
   running.server.advance(code, 'damageReport');
   running.server.advance(code, 'council');
   running.server.advance(code, 'vote');
-  const systems = running.server.rooms.get(code)?.voyage.state.players.map((player) => player.system) ?? [];
-  players.forEach(({ socket }, index) => socket.send(JSON.stringify({ type: 'vote', system: systems[index % systems.length] })));
+  const voyage = running.server.rooms.get(code)?.voyage;
+  const fresh = voyage?.state.damage.find((damage) => !voyage.state.players.find((player) => player.system === damage.system)?.replaced);
+  const choice = fresh?.system ?? voyage?.state.damage[0]?.system ?? voyage?.state.players[0]?.system;
+  if (!choice) throw new Error('No system available for bot vote');
+  players.forEach(({ socket }) => socket.send(JSON.stringify({ type: 'vote', system: choice })));
   await new Promise((resolve) => setTimeout(resolve, 10));
   if (running.server.rooms.get(code)?.voyage.state.phase === 'vote') running.server.advance(code, 'replacement');
 }

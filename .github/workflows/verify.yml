@@ -1,0 +1,54 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "devin/**"
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4.2.2
+      - name: Set up Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Ten-bot end-to-end harness
+        run: npm run bot
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4.2.2
+      - name: Set up Java
+        uses: actions/setup-java@v4.7.1
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3.2.2
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4.4.2
+      - name: Verify Android build, tests, and lint
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest ktlintCheck

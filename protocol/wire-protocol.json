@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "transport": "WebSocket",
+  "clientToServer": {
+    "create": { "name": "string" },
+    "join": { "roomCode": "string", "name": "string", "playerToken": "string?" },
+    "ready": { "ready": "boolean" },
+    "start": {},
+    "vote": { "system": "System" },
+    "accuse": { "suspectId": "string" },
+    "lantern": { "targetId": "string" },
+    "power": { "targetId": "string?" },
+    "heading": { "heading": "North|East|South|West" },
+    "chat": { "text": "string" },
+    "kick": { "playerId": "string" }
+  },
+  "serverToClient": {
+    "joined": { "roomCode": "string", "playerId": "string", "playerToken": "string" },
+    "state": {
+      "public": "PublicView",
+      "private": "PrivateView"
+    },
+    "error": { "message": "string" }
+  },
+  "privacy": {
+    "public": "Room-wide state, player identities, systems, replacement markers, morale, identity band, damage system names, vote tally, chat.",
+    "private": "Only the addressed player's alignment, readings, power, conversion reveal, exact Identity, forecasts, and power results.",
+    "rule": "A state message is serialized separately for each connected player; no player's private payload is broadcast to another player."
+  },
+  "clientRules": [
+    "The client renders server state and performs no game-rule resolution.",
+    "Unknown server message types and unknown fields must be ignored without crashing.",
+    "Reconnect sends join with roomCode, name, and playerToken; the server replays the current state."
+  ]
+}

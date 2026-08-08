@@ -1,20 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { createRoomCode, SeededRng, Voyage, type Rng } from './core.js';
-import type { Phase, System } from './types.js';
-
-type ClientMessage =
-  | { type: 'create'; name: string }
-  | { type: 'join'; roomCode: string; name: string; playerToken?: string }
-  | { type: 'ready'; ready: boolean }
-  | { type: 'start' }
-  | { type: 'vote'; system: System }
-  | { type: 'accuse'; suspectId: string }
-  | { type: 'lantern'; targetId: string }
-  | { type: 'power'; targetId?: string }
-  | { type: 'heading'; heading: 'North' | 'East' | 'South' | 'West' }
-  | { type: 'chat'; text: string }
-  | { type: 'kick'; playerId: string };
+import type { ClientMessage } from './protocol.js';
+import type { Phase } from './types.js';
 
 interface Room {
   voyage: Voyage;

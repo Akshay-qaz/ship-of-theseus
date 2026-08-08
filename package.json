@@ -1,0 +1,12 @@
+{
+  "name": "ship-of-theseus",
+  "private": true,
+  "type": "module",
+  "workspaces": ["server"],
+  "scripts": {
+    "lint": "npm --workspace server run lint",
+    "typecheck": "npm --workspace server run typecheck",
+    "test": "npm --workspace server test",
+    "bot": "npm --workspace server run bot"
+  }
+}
